@@ -8,13 +8,13 @@ import requests
 import atexit
 import signal
 
-from market_maker import bitmex
-from market_maker.settings import settings
-from market_maker.utils import log, constants, errors
+from sample_market_maker.market_maker import bitmex
+# from market_maker.settings import settings
+from sample_market_maker.market_maker.utils import log, constants, errors
 
 # Used for reloading the bot - saves modified times of key files
 import os
-watched_files_mtimes = [(f, getmtime(f)) for f in settings.WATCHED_FILES]
+watched_files_mtimes = [] #[(f, getmtime(f)) for f in settings.WATCHED_FILES]
 
 
 #
@@ -24,25 +24,28 @@ logger = log.setup_custom_logger('root')
 
 
 class ExchangeInterface:
-    def __init__(self, dry_run=False):
-        self.dry_run = dry_run
-        if len(sys.argv) > 1:
-            self.symbol = sys.argv[1]
-        else:
-            self.symbol = settings.SYMBOL
-        self.bitmex = bitmex.BitMEX(base_url=settings.BASE_URL, symbol=self.symbol, login=settings.LOGIN,
-                                    password=settings.PASSWORD, otpToken=settings.OTPTOKEN, apiKey=settings.API_KEY,
-                                    apiSecret=settings.API_SECRET, orderIDPrefix=settings.ORDERID_PREFIX)
+    def __init__(self, settings=None):
+        self.settings = settings
+        #if settings is None:
+        #    settings = load_settings()
+        self.dry_run = self.settings.DRY_RUN
+        #if len(sys.argv) > 1:
+        #    self.symbol = sys.argv[1]
+        #else:
+        self.symbol = self.settings.SYMBOL
+        self.bitmex = bitmex.BitMEX(base_url=self.settings.BASE_URL, symbol=self.settings.SYMBOL, login=self.settings.LOGIN,
+                                    password=self.settings.PASSWORD, otpToken=self.settings.OTPTOKEN, apiKey=self.settings.API_KEY,
+                                    apiSecret=self.settings.API_SECRET, orderIDPrefix=self.settings.ORDERID_PREFIX)
 
     def cancel_order(self, order):
         logger.info("Cancelling: %s %d @ %.2f" % (order['side'], order['orderQty'], "@", order['price']))
         while True:
             try:
                 self.bitmex.cancel(order['orderID'])
-                sleep(settings.API_REST_INTERVAL)
+                sleep(self.settings.API_REST_INTERVAL)
             except ValueError as e:
                 logger.info(e)
-                sleep(settings.API_ERROR_INTERVAL)
+                sleep(self.settings.API_ERROR_INTERVAL)
             else:
                 break
 
@@ -62,10 +65,10 @@ class ExchangeInterface:
         if len(orders):
             self.bitmex.cancel([order['orderID'] for order in orders])
 
-        sleep(settings.API_REST_INTERVAL)
+        sleep(self.settings.API_REST_INTERVAL)
 
     def get_portfolio(self):
-        contracts = settings.CONTRACTS
+        contracts = self.settings.CONTRACTS
         portfolio = {}
         for symbol in contracts:
             position = self.bitmex.position(symbol=symbol)
@@ -76,8 +79,11 @@ class ExchangeInterface:
             elif instrument['isInverse']:
                 future_type = "Inverse"
             else:
-                raise NotImplementedError("Unknown future type; not quanto or inverse: %s" % instrument['symbol'])
-
+                future_type = 'Normal'
+                #raise NotImplementedError("Unknown future type; not quanto or inverse: %s" % instrument['symbol'])
+            
+            if instrument['underlyingToSettleMultiplier'] is None:
+                instrument['underlyingToSettleMultiplier'] = 1
             multiplier = float(instrument['multiplier']) / float(instrument['underlyingToSettleMultiplier'])
 
             portfolio[symbol] = {
@@ -123,7 +129,7 @@ class ExchangeInterface:
 
     def get_margin(self):
         if self.dry_run:
-            return {'marginBalance': float(settings.DRY_BTC), 'availableFunds': float(settings.DRY_BTC)}
+            return {'marginBalance': float(self.settings.DRY_BTC), 'availableFunds': float(self.settings.DRY_BTC)}
         return self.bitmex.funds()
 
     def get_orders(self):
@@ -190,8 +196,11 @@ class ExchangeInterface:
 
 
 class OrderManager:
-    def __init__(self):
-        self.exchange = ExchangeInterface(settings.DRY_RUN)
+    def __init__(self, settings=None):
+        self.settings = settings
+        #if settings is None:
+        #    settings = load_settings()
+        self.exchange = ExchangeInterface(settings=self.settings)
         # Once exchange is created, register exit handler that will always cancel orders
         # on any error.
         atexit.register(self.exit)
@@ -200,7 +209,7 @@ class OrderManager:
         logger.info("Using symbol %s." % self.exchange.symbol)
 
     def init(self):
-        if settings.DRY_RUN:
+        if self.settings.DRY_RUN:
             logger.info("Initializing dry run. Orders printed below represent what would be posted to BitMEX.")
         else:
             logger.info("Order Manager initializing, connecting to BitMEX. Live run: executing real trades.")
@@ -219,7 +228,7 @@ class OrderManager:
         # Create orders and converge.
         self.place_orders()
 
-        if settings.DRY_RUN:
+        if self.settings.DRY_RUN:
             sys.exit()
 
     def print_status(self):
@@ -232,8 +241,8 @@ class OrderManager:
 
         logger.info("Current XBT Balance: %.6f" % XBt_to_XBT(self.start_XBt))
         logger.info("Current Contract Position: %d" % self.running_qty)
-        if settings.CHECK_POSITION_LIMITS:
-            logger.info("Position limits: %d/%d" % (settings.MIN_POSITION, settings.MAX_POSITION))
+        if self.settings.CHECK_POSITION_LIMITS:
+            logger.info("Position limits: %d/%d" % (self.settings.MIN_POSITION, self.settings.MAX_POSITION))
         if position['currentQty'] != 0:
             logger.info("Avg Cost Price: %.2f" % float(position['avgCostPrice']))
             logger.info("Avg Entry Price: %.2f" % float(position['avgEntryPrice']))
@@ -252,16 +261,16 @@ class OrderManager:
         # If we're maintaining spreads and we already have orders in place,
         # make sure they're not ours. If they are, we need to adjust, otherwise we'll
         # just work the orders inward until they collide.
-        if settings.MAINTAIN_SPREADS:
+        if self.settings.MAINTAIN_SPREADS:
             if ticker['buy'] == self.exchange.get_highest_buy()['price']:
                 self.start_position_buy = ticker["buy"]
             if ticker['sell'] == self.exchange.get_lowest_sell()['price']:
                 self.start_position_sell = ticker["sell"]
 
         # Back off if our spread is too small.
-        if self.start_position_buy * (1.00 + settings.MIN_SPREAD) > self.start_position_sell:
-            self.start_position_buy *= (1.00 - (settings.MIN_SPREAD / 2))
-            self.start_position_sell *= (1.00 + (settings.MIN_SPREAD / 2))
+        if self.start_position_buy * (1.00 + self.settings.MIN_SPREAD) > self.start_position_sell:
+            self.start_position_buy *= (1.00 - (self.settings.MIN_SPREAD / 2))
+            self.start_position_sell *= (1.00 + (self.settings.MIN_SPREAD / 2))
 
         # Midpoint, used for simpler order placement.
         self.start_position_mid = ticker["mid"]
@@ -277,7 +286,7 @@ class OrderManager:
         """Given an index (1, -1, 2, -2, etc.) return the price for that side of the book.
            Negative is a buy, positive is a sell."""
         # Maintain existing spreads for max profit
-        if settings.MAINTAIN_SPREADS:
+        if self.settings.MAINTAIN_SPREADS:
             start_position = self.start_position_buy if index < 0 else self.start_position_sell
             # First positions (index 1, -1) should start right at start_position, others should branch from there
             index = index + 1 if index < 0 else index - 1
@@ -293,7 +302,7 @@ class OrderManager:
             if index < 0 and start_position > self.start_position_sell:
                 start_position = self.start_position_buy
 
-        return round(start_position * (1 + settings.INTERVAL) ** index, self.instrument['tickLog'])
+        return round(start_position * (1 + self.settings.INTERVAL) ** index, self.instrument['tickLog'])
 
     ###
     # Orders
@@ -308,7 +317,7 @@ class OrderManager:
         # then we match orders from the outside in, ensuring the fewest number of orders are amended and only
         # a new order is created in the inside. If we did it inside-out, all orders would be amended
         # down and a new order would be created at the outside.
-        for i in reversed(range(1, settings.ORDER_PAIRS + 1)):
+        for i in reversed(range(1, self.settings.ORDER_PAIRS + 1)):
             if not self.long_position_limit_exceeded():
                 buy_orders.append(self.prepare_order(-i))
             if not self.short_position_limit_exceeded():
@@ -319,10 +328,11 @@ class OrderManager:
     def prepare_order(self, index):
         """Create an order object."""
 
-        if settings.RANDOM_ORDER_SIZE is True:
-            quantity = random.randint(settings.MIN_ORDER_SIZE, settings.MAX_ORDER_SIZE)
+        if self.settings.RANDOM_ORDER_SIZE is True:
+            quantity = random.randint(self.settings.MIN_ORDER_SIZE, self.settings.MAX_ORDER_SIZE)
         else:
-            quantity = settings.ORDER_START_SIZE + ((abs(index) - 1) * settings.ORDER_STEP_SIZE)
+            quantity = abs(self.settings.TARGET_POSITION - self.exchange.get_delta())
+            #quantity = self.settings.ORDER_START_SIZE + ((abs(index) - 1) * self.settings.ORDER_STEP_SIZE)
 
         price = self.get_price_offset(index)
 
@@ -356,7 +366,7 @@ class OrderManager:
                 if desired_order['orderQty'] != order['leavesQty'] or (
                         # If price has changed, and the change is more than our RELIST_INTERVAL, amend.
                         desired_order['price'] != order['price'] and
-                        abs((desired_order['price'] / order['price']) - 1) > settings.RELIST_INTERVAL):
+                        abs((desired_order['price'] / order['price']) - 1) > self.settings.RELIST_INTERVAL):
                     to_amend.append({'orderID': order['orderID'], 'leavesQty': desired_order['orderQty'],
                                      'price': desired_order['price'], 'side': order['side']})
             except IndexError:
@@ -415,17 +425,22 @@ class OrderManager:
 
     def short_position_limit_exceeded(self):
         "Returns True if the short position limit is exceeded"
-        if not settings.CHECK_POSITION_LIMITS:
+        if not self.settings.CHECK_POSITION_LIMITS:
             return False
         position = self.exchange.get_delta()
-        return position <= settings.MIN_POSITION
+        return position <= self.settings.MIN_POSITION
 
     def long_position_limit_exceeded(self):
         "Returns True if the long position limit is exceeded"
-        if not settings.CHECK_POSITION_LIMITS:
+        if not self.settings.CHECK_POSITION_LIMITS:
             return False
         position = self.exchange.get_delta()
-        return position >= settings.MAX_POSITION
+        return position >= self.settings.MAX_POSITION
+        
+    def target_position_reached(self):
+        "Returns True if the long position limit is exceeded"    
+        position = self.exchange.get_delta()
+        return position == self.settings.TARGET_POSITION
 
     ###
     # Sanity
@@ -444,8 +459,8 @@ class OrderManager:
         ticker = self.get_ticker()
 
         # Sanity check:
-        if self.get_price_offset(-1) >= ticker["sell"] or self.get_price_offset(1) <= ticker["buy"]:
-            logger.error(self.start_position_buy, self.start_position_sell)
+        if self.get_price_offset(-1) > ticker["sell"] or self.get_price_offset(1) < ticker["buy"]:
+            #logger.error(self.start_position_buy, self.start_position_sell)
             logger.error("%s %s %s %s" % (self.get_price_offset(-1), ticker["sell"], self.get_price_offset(1), ticker["buy"]))
             logger.error("Sanity check failed, exchange data is inconsistent")
             sys.exit()
@@ -454,12 +469,12 @@ class OrderManager:
         if self.long_position_limit_exceeded():
             logger.info("Long delta limit exceeded")
             logger.info("Current Position: %.f, Maximum Position: %.f" %
-                        (self.exchange.get_delta(), settings.MAX_POSITION))
+                        (self.exchange.get_delta(), self.settings.MAX_POSITION))
 
         if self.short_position_limit_exceeded():
             logger.info("Short delta limit exceeded")
             logger.info("Current Position: %.f, Minimum Position: %.f" %
-                        (self.exchange.get_delta(), settings.MIN_POSITION))
+                        (self.exchange.get_delta(), self.settings.MIN_POSITION))
 
     ###
     # Running
@@ -486,12 +501,13 @@ class OrderManager:
             logger.info("Unable to cancel orders: %s" % e)
 
     def run_loop(self):
-        while True:
+        keep_working = True
+        while keep_working:
             sys.stdout.write("-----\n")
             sys.stdout.flush()
 
             self.check_file_change()
-            sleep(settings.LOOP_INTERVAL)
+            sleep(self.settings.LOOP_INTERVAL)
 
             # This will restart on very short downtime, but if it's longer,
             # the MM will crash entirely as it is unable to connect to the WS on boot.
@@ -501,7 +517,12 @@ class OrderManager:
 
             self.sanity_check()  # Ensures health of mm - several cut-out points here
             self.print_status()  # Print skew, delta, etc
-            self.place_orders()  # Creates desired orders and converges to existing orders
+            if self.target_position_reached():
+                logger.info("Target Position Reached, Finished Working "+self.settings.SYMBOL)
+                self.exit()
+                keep_working = False
+            else:
+                self.place_orders()  # Creates desired orders and converges to existing orders
 
     def restart(self):
         logger.info("Restarting the market maker...")

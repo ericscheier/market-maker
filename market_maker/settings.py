@@ -1,10 +1,21 @@
 from __future__ import absolute_import
 import os
 import sys
-from market_maker.utils.dotdict import dotdict
-import market_maker._settings_base as baseSettings
+from sample_market_maker.market_maker.utils.dotdict import dotdict
+#import market_maker._settings_base as baseSettings
 from imp import reload
+import yaml
 
+
+def load_settings(fullpath):
+    
+    #settings_file = "sample_market_maker/settings.py"
+    with open(fullpath) as file_to_parse:
+        settings = dotdict(yaml.load(file_to_parse))
+    
+    #settings = dotdict(settings)
+    return settings
+    
 
 def import_path(fullpath):
     """
@@ -19,22 +30,24 @@ def import_path(fullpath):
     del sys.path[0]
     return module
 
-userSettings = import_path(os.path.join('..', 'settings'))
-symbolSettings = None
-symbol = sys.argv[1] if len(sys.argv) > 1 else None
-if symbol:
-    print("Importing symbol settings for %s..." % symbol)
-    try:
-        symbolSettings = import_path(os.path.join('..', 'settings-%s' % symbol))
-    except Exception as e:
-        print("Unable to find settings-%s.py." % symbol)
+baseSettings = load_settings(os.path.join('sample_market_maker/market_maker/_settings_base.py'))
+#print(os.getcwd())
+userSettings = load_settings(os.path.join('sample_market_maker/settings.py'))
+#symbolSettings = None
+#symbol = sys.argv[1] if len(sys.argv) > 1 else None
+#if symbol:
+#    print("Importing symbol settings for %s..." % symbol)
+#    try:
+#        symbolSettings = import_path(os.path.join('..', 'settings-%s' % symbol))
+#    except Exception as e:
+#        print("Unable to find settings-%s.py." % symbol)
 
 # Assemble settings.
 settings = {}
-settings.update(vars(baseSettings))
-settings.update(vars(userSettings))
-if symbolSettings:
-    settings.update(vars(symbolSettings))
+settings.update(baseSettings)
+settings.update(userSettings)
+#if symbolSettings:
+#    settings.update(vars(symbolSettings))
 
 # Main export
 settings = dotdict(settings)

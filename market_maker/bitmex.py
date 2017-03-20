@@ -6,9 +6,9 @@ import json
 import base64
 import uuid
 import logging
-from market_maker.auth import AccessTokenAuth, APIKeyAuthWithExpires
-from market_maker.utils import constants, errors
-from market_maker.ws.ws_thread import BitMEXWebsocket
+from sample_market_maker.market_maker.auth import AccessTokenAuth, APIKeyAuthWithExpires
+from sample_market_maker.market_maker.utils import constants, errors
+from sample_market_maker.market_maker.ws.ws_thread import BitMEXWebsocket
 
 
 # https://www.bitmex.com/api/explorer/
@@ -124,7 +124,9 @@ class BitMEX(object):
         postdict = {
             'symbol': self.symbol,
             'orderQty': quantity,
-            'price': price,
+            #'price': price,
+            'ordType': 'Market',
+            #'execInst': 'ParticipateDoNotInitiate',
             'clOrdID': clOrdID
         }
         return self._curl_bitmex(api=endpoint, postdict=postdict, verb="POST")
@@ -140,6 +142,9 @@ class BitMEX(object):
         for order in orders:
             order['clOrdID'] = self.orderIDPrefix + base64.b64encode(uuid.uuid4().bytes).decode('utf-8').rstrip('=\n')
             order['symbol'] = self.symbol
+            #order['execInst'] = 'ParticipateDoNotInitiate'
+            del order['price']
+            order['ordType'] = 'Market'
         return self._curl_bitmex(api='order/bulk', postdict={'orders': orders}, verb='POST')
 
     @authentication_required
