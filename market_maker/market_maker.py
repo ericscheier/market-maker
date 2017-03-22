@@ -496,7 +496,7 @@ class OrderManager:
         try:
             pass
             #self.exchange.cancel_all_orders()
-            #self.exchange.bitmex.ws.exit()
+            self.exchange.bitmex.ws.exit()
         except errors.AuthenticationError as e:
             logger.info("Was not authenticated; could not cancel orders.")
         except Exception as e:

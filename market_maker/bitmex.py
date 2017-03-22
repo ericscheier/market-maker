@@ -42,7 +42,7 @@ class BitMEX(object):
 
         # Create websocket for streaming data
         self.ws = BitMEXWebsocket()
-        self.ws.connect(base_url, contracts, shouldAuth=shouldWSAuth)
+        self.ws.connect(base_url, symbol, shouldAuth=shouldWSAuth)
 
     #
     # Public methods
