@@ -33,7 +33,7 @@ class GDAXWebsocket():
         # We can subscribe right in the connection querystring, so let's build that.
         # Subscribe to all pertinent endpoints
         #subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"]]
-        subscriptions += [sub + ':' + symbol for sub in ["quote", "trade"] for symbol in symbols]
+        subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"] for symbol in symbols]
         subscriptions += ["instrument"]  # We want all of them
         if self.shouldAuth:
             #subscriptions += [sub + ':' + symbol for sub in ["order", "execution"]]
@@ -319,7 +319,7 @@ class BitMEXWebsocket():
 
         # We can subscribe right in the connection querystring, so let's build that.
         # Subscribe to all pertinent endpoints
-        subscriptions += [sub + ':' + symbol for sub in ["quote", "trade"] for symbol in symbols]
+        subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"] for symbol in symbols]
         subscriptions += ["instrument"]  # We want all of them
         if self.shouldAuth:
             #subscriptions += [sub + ':' + symbol for sub in ["order", "execution"]]
