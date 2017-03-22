@@ -25,19 +25,19 @@ class GDAXWebsocket():
 
     def connect(self, endpoint="", symbol="XBTN15", shouldAuth=True):
         '''Connect to the websocket and initialize data stores.'''
-        symbols = symbol
+        #symbols = symbol
         self.logger.debug("Connecting WebSocket.")
         self.symbol = symbol
         self.shouldAuth = shouldAuth
 
         # We can subscribe right in the connection querystring, so let's build that.
         # Subscribe to all pertinent endpoints
-        #subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"]]
-        subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"] for symbol in symbols]
+        subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"]]
+        #subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"] for symbol in symbols]
         subscriptions += ["instrument"]  # We want all of them
         if self.shouldAuth:
-            #subscriptions += [sub + ':' + symbol for sub in ["order", "execution"]]
-            subscriptions += [sub + ':' + symbol for sub in ["order", "execution"] for symbol in symbols]
+            subscriptions += [sub + ':' + symbol for sub in ["order", "execution"]]
+            #subscriptions += [sub + ':' + symbol for sub in ["order", "execution"] for symbol in symbols]
             subscriptions += ["margin", "position"]
 
         # Get WS URL and connect.
@@ -312,18 +312,19 @@ class BitMEXWebsocket():
 
     def connect(self, endpoint="", symbol="XBTN15", shouldAuth=True):
         '''Connect to the websocket and initialize data stores.'''
-        symbols = symbol
+        #symbols = symbol
         self.logger.debug("Connecting WebSocket.")
         self.symbol = symbol
         self.shouldAuth = shouldAuth
 
         # We can subscribe right in the connection querystring, so let's build that.
         # Subscribe to all pertinent endpoints
-        subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"] for symbol in symbols]
+        subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"]]
+        #subscriptions = [sub + ':' + symbol for sub in ["quote", "trade"] for symbol in symbols]
         subscriptions += ["instrument"]  # We want all of them
         if self.shouldAuth:
-            #subscriptions += [sub + ':' + symbol for sub in ["order", "execution"]]
-            subscriptions += [sub + ':' + symbol for sub in ["order", "execution"] for symbol in symbols]
+            subscriptions += [sub + ':' + symbol for sub in ["order", "execution"]]
+            #subscriptions += [sub + ':' + symbol for sub in ["order", "execution"] for symbol in symbols]
             subscriptions += ["margin", "position"]
 
 
