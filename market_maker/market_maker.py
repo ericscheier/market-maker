@@ -331,8 +331,8 @@ class OrderManager:
         if self.settings.RANDOM_ORDER_SIZE is True:
             quantity = random.randint(self.settings.MIN_ORDER_SIZE, self.settings.MAX_ORDER_SIZE)
         else:
-            #quantity = min(15,abs(self.settings.TARGET_POSITION - self.exchange.get_delta()))
-            quantity = self.settings.ORDER_START_SIZE + ((abs(index) - 1) * self.settings.ORDER_STEP_SIZE)
+            quantity = min(15,abs(self.settings.TARGET_POSITION - self.exchange.get_delta()))
+            #quantity = self.settings.ORDER_START_SIZE + ((abs(index) - 1) * self.settings.ORDER_STEP_SIZE)
 
         price = self.get_price_offset(index)
 
@@ -493,7 +493,7 @@ class OrderManager:
     def exit(self):
         logger.info("Shutting down. All open orders will be cancelled.")
         try:
-            self.exchange.cancel_all_orders()
+            #self.exchange.cancel_all_orders()
             self.exchange.bitmex.ws.exit()
         except errors.AuthenticationError as e:
             logger.info("Was not authenticated; could not cancel orders.")
