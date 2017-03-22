@@ -221,7 +221,7 @@ class OrderManager:
         self.reset()
 
     def reset(self):
-        self.exchange.cancel_all_orders()
+        #self.exchange.cancel_all_orders()
         self.sanity_check()
         self.print_status()
 
