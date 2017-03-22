@@ -17,7 +17,7 @@ class BitMEX(object):
     """BitMEX API Connector."""
 
     def __init__(self, base_url=None, symbol=None, login=None, password=None, otpToken=None,
-                 apiKey=None, apiSecret=None, orderIDPrefix='mm_bitmex_', shouldWSAuth=True):
+                 apiKey=None, apiSecret=None, orderIDPrefix='mm_bitmex_', shouldWSAuth=True, contracts=None):
         """Init connector."""
         self.logger = logging.getLogger('root')
         self.base_url = base_url
@@ -42,7 +42,7 @@ class BitMEX(object):
 
         # Create websocket for streaming data
         self.ws = BitMEXWebsocket()
-        self.ws.connect(base_url, symbol, shouldAuth=shouldWSAuth)
+        self.ws.connect(base_url, contracts, shouldAuth=shouldWSAuth)
 
     #
     # Public methods

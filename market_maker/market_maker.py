@@ -35,7 +35,8 @@ class ExchangeInterface:
         self.symbol = self.settings.SYMBOL
         self.bitmex = bitmex.BitMEX(base_url=self.settings.BASE_URL, symbol=self.settings.SYMBOL, login=self.settings.LOGIN,
                                     password=self.settings.PASSWORD, otpToken=self.settings.OTPTOKEN, apiKey=self.settings.API_KEY,
-                                    apiSecret=self.settings.API_SECRET, orderIDPrefix=self.settings.ORDERID_PREFIX)
+                                    apiSecret=self.settings.API_SECRET, orderIDPrefix=self.settings.ORDERID_PREFIX,
+                                    contracts=self.settings.CONTRACTS)
 
     def cancel_order(self, order):
         logger.info("Cancelling: %s %d @ %.2f" % (order['side'], order['orderQty'], "@", order['price']))
