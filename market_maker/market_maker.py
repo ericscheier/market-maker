@@ -504,6 +504,7 @@ class OrderManager:
 
     def run_loop(self):
         keep_working = True
+        
         while keep_working:
             sys.stdout.write("-----\n")
             sys.stdout.flush()
@@ -520,9 +521,19 @@ class OrderManager:
             self.sanity_check()  # Ensures health of mm - several cut-out points here
             self.print_status()  # Print skew, delta, etc
             if self.target_position_reached():
-                logger.info("Target Position Reached, Finished Working "+self.settings.SYMBOL)
-                self.exit()
-                keep_working = False
+                logger.info("Target Position Reached for "+self.settings.SYMBOL)
+                if not self.settings.MM_ON:
+                    logger.info("Market Making Off: Finished Working "+self.settings.SYMBOL)
+                    self.exit()
+                    keep_working = False
+                if self.settings.MM_ON:
+                    current_time = datetime.now()
+                    time_elapsed = round(max(0,(current_time - last_updated).total_seconds()),0)
+                    if time_elapsed > self.settings.MM_MINS * 60:
+                        logger.info("Market Making Time Limit Expired for "+self.settings.SYMBOL)
+                        logger.info("Reacquiring Position for "+self.settings.SYMBOL)
+                        self.settings.MM_ON = False
+                        
             else:
                 self.place_orders()  # Creates desired orders and converges to existing orders
                 keep_working = False
